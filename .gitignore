@@ -1,0 +1,7 @@
+# Local scratch / generated
+wm/
+tmp/
+
+# OS/editor
+.DS_Store
+Thumbs.db
