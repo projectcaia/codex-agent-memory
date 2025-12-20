@@ -1,12 +1,12 @@
-﻿# Merge local/global Codex memory with the GitHub-backed repo.
 #
-# Behavior:
-# - Pulls latest main.
-# - Merges JSONL by `id` (prefers the entry with the newer `ts` when both exist).
-# - Writes merged output to BOTH:
-#   - C:\Users\A\.codex\memory\long_term_memory.jsonl
-#   - <repo>\ltm\long_term_memory.jsonl
-# - Commits + pushes only if repo file changed.
+# Sync Codex long-term memory between:
+# - Local file: C:\Users\A\.codex\memory\long_term_memory.jsonl
+# - Git repo:   <repo>\ltm\long_term_memory.jsonl
+#
+# Notes:
+# - Offline-safe: fetch/pull/push are best-effort.
+# - Merge strategy: unique `id`, newer `ts` wins when both exist.
+# - Safety: refuses to proceed if obvious secret patterns are detected.
 #
 param(
   [string]$RepoDir = "C:\\Users\\A\\.codex\\memory-repos\\codex-agent-memory",
@@ -22,7 +22,9 @@ function Read-Jsonl([string]$path) {
   $lines = Get-Content -LiteralPath $path -ErrorAction SilentlyContinue
   $out = New-Object System.Collections.Generic.List[object]
   foreach ($line in $lines) {
-    $trim = $(if ($null -ne $line) { [string]$line } else { "" }).Trim()
+    $trim = $line
+    if ($null -eq $trim) { $trim = '' }
+    $trim = ([string]$trim).Trim()
     if ($trim.Length -eq 0) { continue }
     try {
       $obj = $trim | ConvertFrom-Json -ErrorAction Stop
@@ -35,13 +37,26 @@ function Read-Jsonl([string]$path) {
   return ,$out.ToArray()
 }
 
+function To-JsonLine($obj) {
+  return ($obj | ConvertTo-Json -Compress -Depth 20)
+}
+
+function Get-Ts($obj) {
+  try {
+    if ($null -eq $obj.ts) { return [DateTimeOffset]::MinValue }
+    return [DateTimeOffset]::Parse([string]$obj.ts)
+  } catch {
+    return [DateTimeOffset]::MinValue
+  }
+}
+
 function Assert-NoSecrets([string]$text) {
   $patterns = @(
     'ghp_[A-Za-z0-9]{20,}',                 # GitHub classic PAT
     'github_pat_[A-Za-z0-9_]{20,}',         # fine-grained PAT
     '-----BEGIN [A-Z ]*PRIVATE KEY-----',   # private keys
-    '\\bAKIA[0-9A-Z]{16}\\b',               # AWS access key id
-    '\\bsk-[A-Za-z0-9]{20,}\\b'             # common API key prefix (OpenAI-style)
+    '\bAKIA[0-9A-Z]{16}\b',                 # AWS access key id
+    '\bsk-[A-Za-z0-9]{20,}\b'               # common API key prefix (OpenAI-style)
   )
   foreach ($p in $patterns) {
     if ($text -match $p) { throw "Potential secret detected (pattern: $p). Refusing to sync/push." }
@@ -55,19 +70,6 @@ function Assert-EntriesBasic($entries) {
     $id = [string]$e.id
     if ($seen.ContainsKey($id)) { throw "Duplicate id detected: $id" }
     $seen[$id] = $true
-  }
-}
-
-function To-JsonLine($obj) {
-  return ($obj | ConvertTo-Json -Compress -Depth 20)
-}
-
-function Get-Ts($obj) {
-  try {
-    if ($null -eq $obj.ts) { return [DateTimeOffset]::MinValue }
-    return [DateTimeOffset]::Parse([string]$obj.ts)
-  } catch {
-    return [DateTimeOffset]::MinValue
   }
 }
 
@@ -95,7 +97,6 @@ if ($networkOk) {
 $repoJsonl = Join-Path $RepoDir 'ltm\\long_term_memory.jsonl'
 New-Item -ItemType Directory -Force -Path (Split-Path $repoJsonl) | Out-Null
 
-$localRaw = ''
 if (Test-Path -LiteralPath $LocalJsonl) {
   $localRaw = Get-Content -LiteralPath $LocalJsonl -Raw -ErrorAction SilentlyContinue
   if ($null -eq $localRaw) { $localRaw = '' }
@@ -114,11 +115,11 @@ foreach ($e in $local) {
   if ((Get-Ts $e) -gt (Get-Ts $a)) { $byId[$id] = $e }
 }
 
+Assert-EntriesBasic ($byId.Values)
+
 $merged = $byId.Values | Sort-Object { Get-Ts $_ } | ForEach-Object { To-JsonLine $_ }
 $mergedText = ($merged -join "`n") + "`n"
-
 Assert-NoSecrets $mergedText
-Assert-EntriesBasic ($byId.Values)
 
 # Write both
 $localDir = Split-Path $LocalJsonl
@@ -146,6 +147,7 @@ if ($changed) {
   git -C $RepoDir add -A
   $msg = "sync memory " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " (" + $byId.Count + " entries)"
   git -C $RepoDir commit -m $msg
+
   if ($networkOk) {
     try {
       git -C $RepoDir push -u origin $Branch
@@ -159,4 +161,3 @@ if ($changed) {
 } else {
   Write-Host "No changes to push"
 }
-
