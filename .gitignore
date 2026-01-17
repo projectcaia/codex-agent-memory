@@ -18,6 +18,7 @@ memory-repos/
 # Temp / sandbox
 tmp/
 .sandbox/
+wm/
 
 # OS/editor noise
 Thumbs.db
