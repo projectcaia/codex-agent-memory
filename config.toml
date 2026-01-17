@@ -1,0 +1,23 @@
+model = "gpt-5.2"
+model_reasoning_effort = "medium"
+
+[projectMappings]
+"caia-core" = "C:/Users/A/.caia-core"
+"caia-memory" = "C:/Users/A/Documents/GitHub/projectcaia/caia-memory"
+"caia-evolve" = "C:/Users/A/Documents/GitHub/projectcaia/caia-evolve"
+"caia-genspark-bridge" = "C:/Users/A/Documents/GitHub/projectcaia/caia-genspark-bridge"
+"genspark-bridge" = "C:/Users/A/Documents/GitHub/projectcaia/caia-genspark-bridge"
+"caia-agent-core" = "C:/Users/A/Documents/GitHub/projectcaia/caia-agent-core"
+"Caia-agent" = "C:/Users/A/Documents/GitHub/projectcaia/Caia-agent"
+"caia-agent" = "C:/Users/A/Documents/GitHub/projectcaia/Caia-agent"
+"FastAPI-Sentinel" = "C:/Users/A/Documents/GitHub/projectcaia/FastAPI-Sentinel"
+"sentinel" = "C:/Users/A/Documents/GitHub/projectcaia/FastAPI-Sentinel"
+"connector-hub" = "C:/Users/A/Documents/GitHub/projectcaia/connector-hub"
+"caia-mcp-gate-way" = "C:/Users/A/Documents/GitHub/projectcaia/caia-mcp-gate-way"
+"aichampion" = "C:/Users/A/Desktop/aichampion"
+defaultProject = "caia-core"
+sandbox = "workspace-write"
+ask_for_approval = "on-failure"
+
+[projects.'\\?\C:\Users\A\.codex']
+trust_level = "trusted"
