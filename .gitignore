@@ -15,6 +15,12 @@ history.jsonl
 memory/
 memory-repos/
 
+# Caia raw archives / accidental drops (local only)
+archive/
+
+# Caia rules live in .caia-core (avoid duplicating here)
+rules/
+
 # Temp / sandbox
 tmp/
 .sandbox/
